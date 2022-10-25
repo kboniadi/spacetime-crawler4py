@@ -1,11 +1,38 @@
 import re
 from urllib.parse import urlparse
 
+from bs4 import BeautifulSoup
+
+f = open("out.txt", "w")
+
 def scraper(url, resp):
     links = extract_next_links(url, resp)
-    return [link for link in links if is_valid(link)]
+    ret = [link for link in links if is_valid(link)]
+
+    for url in ret:
+        f.write(url + "\n")
+    return ret
+
 
 def extract_next_links(url, resp):
+    ret = []
+    if resp.error is not None:
+        print(resp.error)
+        return list()
+
+    if resp.raw_response is None:
+        return list()
+
+    soup = BeautifulSoup(resp.raw_response.content, "html.parser")
+    for link in soup.find_all('a'):
+        url_link = link.get('href')
+        if url_link is not None:
+            index = url_link.find("#")
+            if index != -1:
+                ret.append(url_link[0:index])
+            else:
+                ret.append(url_link)
+        
     # Implementation required.
     # url: the URL that was used to get the page
     # resp.url: the actual url of the page
@@ -15,10 +42,11 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    return list()
+    return ret
+
 
 def is_valid(url):
-    # Decide whether to crawl this url or not. 
+    # Decide whether to crawl this url or not.
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
     try:
@@ -36,5 +64,5 @@ def is_valid(url):
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
 
     except TypeError:
-        print ("TypeError for ", parsed)
+        print("TypeError for ", parsed)
         raise
