@@ -19,6 +19,8 @@ stops = set(stopwords.words('english'))
 subdomainsHash = defaultdict(int)
 
 hashWords = defaultdict(set)
+accepted_urls = {".ics.uci.edu", ".cs.uci.edu",
+                 ".informatics.uci.edu", ".stat.uci.edu"}
 
 
 def scraper(url, resp):
@@ -32,6 +34,7 @@ def scraper(url, resp):
             # adding to cache
             cache.add(link)
             if domain == "ics.uci.edu":
+                print("is this every true??")
                 hashWords[subdomain].add(link)
 
     for url in ret:
@@ -61,7 +64,7 @@ def longestPage():
         f = urlopen(page)
         f = f.read().decode('utf-8')
         soup = BeautifulSoup(f, "html.parser")
-        
+
         lineTokens = o.tokenize(soup.get_text())
 
         for val in lineTokens:
@@ -80,11 +83,13 @@ def uniquePages():
 
 def extract_next_links(url, resp):
     ret = []
+
     if resp.error is not None:
         print(resp.error)
         return list()
 
-    if resp.raw_response is None:
+    if resp.raw_response is None or\
+            "application/pdf" in resp.raw_response.headers['Content-Type']:
         return list()
 
     soup = BeautifulSoup(resp.raw_response.content, "html.parser")
@@ -116,8 +121,8 @@ def is_valid(url):
     try:
         parsed = urlparse(url)
         domains = tldextract.extract(url)
-        if parsed.scheme not in set(["http", "https"]) \
-           or url in cache or domains.domain not in set(["ics.uci.edu", "cs.uci.edu", "informatics.uci.edu", "stat.uci.edu"])\
+        if parsed.scheme not in set(["http", "https"])\
+           or url in cache or not any(s in url for s in accepted_urls)\
            or (domains.domain == "today.uci.edu" and parsed.path != "/department/information_computer_sciences/"):
             return False, domains.domain, domains.subdomain
         return not re.match(
