@@ -44,7 +44,7 @@ def scraper(url, resp):
 
     # adding to most common words hash
     for val in lineTokens:
-        if val not in stops:
+        if val.lower() not in stops:
             hashWords[val] += 1
 
     # getting maximum page
@@ -137,9 +137,9 @@ def is_valid(url):
         fqdn = domains.fqdn
 
         if parsed.scheme not in set(["http", "https"])\
-            or url in cache\
-                or not any(s in fqdn for s in accepted_urls)\
-                and (fqdn != "today.uci.edu" and "/department/information_computer_sciences/" not in parsed.path):
+           or url in cache\
+                or (not any(s in fqdn for s in accepted_urls) and fqdn != "today.uci.edu")\
+                or ("today.uci.edu" == fqdn and "/department/information_computer_sciences/" not in parsed.path):
             return False, fqdn, domains.subdomain
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
