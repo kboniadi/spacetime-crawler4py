@@ -1,10 +1,10 @@
 import re
-import sys
 from typing import Dict, List, Optional, Set
 
 
 class Tokenizer:
-    def tokenize(self, html: str, stop_words: Optional[Set] = None) -> List[str]:
+    @staticmethod
+    def tokenize(html: str, stop_words: Optional[Set] = None) -> List[str]:
         if stop_words is None:
             return re.findall(r'[a-zA-Z0-9]+', html)
         else:
@@ -15,7 +15,8 @@ class Tokenizer:
                     ret.append(item)
             return ret
 
-    def compute_word_frequencies(self, word_list: List[str]) -> Dict[str, int]: # O(n)
+    @staticmethod
+    def compute_word_frequencies(word_list: List[str]) -> Dict[str, int]: # O(n)
         ret = {}
         for token in word_list:                                                 # n
             token_lower = token.lower()                                         # 1
@@ -25,8 +26,10 @@ class Tokenizer:
                 ret[token_lower] = 1                                            # 1
         return ret
 
-    def print(self, token_freq: Dict[str, int]): # O(nlogn)
+    @staticmethod
+    def print(token_freq: Dict[str, int]): # O(nlogn)
         if len(token_freq) == 0: return # 1
 
         for key, value in sorted(token_freq.items(), key=lambda item: item[1], reverse=True):   # nlogn + n
             print(f"{key} {value}")                                                             # 1
+

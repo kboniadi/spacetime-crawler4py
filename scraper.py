@@ -1,7 +1,7 @@
 import re
 from collections import defaultdict
+from pickle import TRUE
 from urllib.parse import urlparse
-from urllib.request import urlopen
 
 import tldextract
 from bs4 import BeautifulSoup
@@ -16,16 +16,21 @@ download('stopwords')
 cache = set()
 stops = set(stopwords.words('english'))
 
-subdomainsHash = defaultdict(int)
+subdomainsHash = defaultdict(set)
 
-hashWords = defaultdict(set)
+hashWords = defaultdict(int)
 accepted_urls = {".ics.uci.edu", ".cs.uci.edu",
                  ".informatics.uci.edu", ".stat.uci.edu"}
 
+maxPage = ""
+maxPageLength = 0
+
 
 def scraper(url, resp):
+    global maxPageLength
+    global maxPage
     ret = []
-    links = extract_next_links(url, resp)
+    links, lineTokens = extract_next_links(url, resp)
 
     for link in links:
         valid, domain, subdomain = is_valid(link)
@@ -33,10 +38,19 @@ def scraper(url, resp):
             ret.append(link)
             # adding to cache
             cache.add(link)
-            if domain == "ics.uci.edu":
-                print("is this every true??")
-                hashWords[subdomain].add(link)
 
+            if "ics.uci.edu" in domain:
+                subdomainsHash[subdomain].add(link)
+
+    # adding to most common words hash
+    for val in lineTokens:
+        if val not in stops:
+            hashWords[val] += 1
+
+    # getting maximum page
+    if (len(lineTokens) > maxPageLength):
+        maxPageLength = len(lineTokens)
+        maxPage = url
     for url in ret:
         f.write(url + "\n")
     return ret
@@ -44,35 +58,19 @@ def scraper(url, resp):
 
 # Analysis questions #3
 def mostCommon():
-    return sorted(hashWords, key=lambda x: hashWords[x])
+    return sorted(hashWords, key=lambda x: -hashWords[x])[:50]
 
 
 # Analysis questions #4
 def subdomainICS():
-    list1 = sorted(hashWords)
+    list1 = sorted(subdomainsHash)
 
     for val in list1:
-        print(val, len(hashWords[val]))
+        print(val, len(subdomainsHash[val]))
 
 
 # Analysis questions #2
 def longestPage():
-    max1 = 0
-    maxPage = ""
-    o = Tokenizer()
-    for page in cache:
-        f = urlopen(page)
-        f = f.read().decode('utf-8')
-        soup = BeautifulSoup(f, "html.parser")
-
-        lineTokens = o.tokenize(soup.get_text())
-
-        for val in lineTokens:
-            if val not in stops:
-                hashWords[val] += 1
-        if (len(lineTokens) > max1):
-            max1 = len(lineTokens)
-            maxPage = page
     return maxPage
 
 
@@ -86,21 +84,37 @@ def extract_next_links(url, resp):
 
     if resp.error is not None:
         print(resp.error)
-        return list()
+        return [], []
 
     if resp.raw_response is None or\
-            "application/pdf" in resp.raw_response.headers['Content-Type']:
-        return list()
+            ("Content-Type" in resp.raw_response.headers and "application/pdf" in resp.raw_response.headers['Content-Type']):
+        return [], []
 
     soup = BeautifulSoup(resp.raw_response.content, "html.parser")
-    for link in soup.find_all('a'):
-        url_link = link.get('href')
-        if url_link is not None:
-            index = url_link.find("#")
-            if index != -1:
-                ret.append(url_link[0:index])
-            else:
-                ret.append(url_link)
+    lineTokens = Tokenizer.tokenize(soup.get_text())
+
+    # CHECK CONTENT
+    tempChecker = defaultdict(int)
+    stopsCount = 0
+    for val in lineTokens:
+        if val.lower() not in stops:
+            tempChecker[val] += 1
+        else:
+            stopsCount += 1
+
+# CHECK IF HIGH TEXT CONTENT
+    if (abs(len(lineTokens) - len(tempChecker)) < 1000) and len(lineTokens) - stopsCount >= 50:
+        for link in soup.find_all('a'):
+            url_link = link.get('href')
+            if url_link is not None:
+                index = url_link.find("#")
+                if index != -1:
+                    ret.append(url_link[0:index])
+                else:
+                    ret.append(url_link)
+        return ret, lineTokens
+    else:
+        return [], []
 
     # Implementation required.
     # url: the URL that was used to get the page
@@ -111,7 +125,6 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    return ret
 
 
 def is_valid(url):
@@ -121,20 +134,23 @@ def is_valid(url):
     try:
         parsed = urlparse(url)
         domains = tldextract.extract(url)
+        fqdn = domains.fqdn
+
         if parsed.scheme not in set(["http", "https"])\
-           or url in cache or not any(s in url for s in accepted_urls)\
-           or (domains.domain == "today.uci.edu" and parsed.path != "/department/information_computer_sciences/"):
-            return False, domains.domain, domains.subdomain
+            or url in cache\
+                or not any(s in fqdn for s in accepted_urls)\
+                and (fqdn != "today.uci.edu" and "/department/information_computer_sciences/" not in parsed.path):
+            return False, fqdn, domains.subdomain
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
-            + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
+            + r"|ps|eps|tex|ppt|pptx|ppsx|doc|docx|xls|xlsx|names"
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()),\
-            domains.domain,\
+            fqdn,\
             domains.subdomain
 
     except TypeError:
