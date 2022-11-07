@@ -102,8 +102,8 @@ def extract_next_links(url, resp):
         else:
             stopsCount += 1
 
-# CHECK IF HIGH TEXT CONTENT
-    if (abs(len(lineTokens) - len(tempChecker)) < 1000) and len(lineTokens) - stopsCount >= 50:
+    # CHECK IF HIGH TEXT CONTENT
+    if (abs(len(lineTokens) - len(tempChecker)) < 1500) and len(lineTokens) - stopsCount >= 50:
         for link in soup.find_all('a'):
             url_link = link.get('href')
             if url_link is not None:
@@ -138,7 +138,7 @@ def is_valid(url):
 
         if parsed.scheme not in set(["http", "https"])\
            or url in cache\
-                or (not any(s in fqdn for s in accepted_urls) and fqdn != "today.uci.edu")\
+                or (fqdn != "today.uci.edu" and not any(s in fqdn for s in accepted_urls))\
                 or ("today.uci.edu" == fqdn and "/department/information_computer_sciences/" not in parsed.path):
             return False, fqdn, domains.subdomain
         return not re.match(

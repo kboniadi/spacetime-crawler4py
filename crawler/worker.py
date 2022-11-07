@@ -23,7 +23,7 @@ class Worker(Thread):
                 print(scraper.uniquePages())
                 print(scraper.longestPage())
                 print(scraper.mostCommon())
-                print(scraper.subdomainICS())
+                scraper.subdomainICS()
                 self.logger.info("Frontier is empty. Stopping Crawler.")
                 break
             resp = download(tbd_url, self.config, self.logger)
